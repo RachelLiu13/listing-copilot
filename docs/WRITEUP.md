@@ -1,7 +1,7 @@
 # Listing Copilot: a compliance gatekeeper for cross-border sellers
 
 **UCLA Agentic AI Capstone · Final project write-up**  
-Live app: https://listing-copilot-nine.vercel.app · Code: https://github.com/RachelLiu13/listing-copilot
+Live app: https://listingcopilot.vercel.app · Code: https://github.com/RachelLiu13/listing-copilot
 
 ## 1. The problem
 

@@ -2,7 +2,7 @@
 
 **The compliance gatekeeper for cross-border sellers.** Sellers who don't write English natively (China, Vietnam, Korea, Latin America…) write product notes in their own language and get a listing for Amazon US, UK, DE, JP or TikTok Shop US, in the marketplace's language, with a takedown-risk score, every risky phrase explained in the seller's own language, and fixes that keep only the claims they can prove.
 
-- **Live app:** https://listing-copilot-nine.vercel.app
+- **Live app:** https://listingcopilot.vercel.app
 - **Stack:** Next.js 15 · TypeScript · Tailwind · Supabase (Auth + Postgres/RLS) · Claude API · Stripe (test mode) · Vercel
 - **Docs:** [PRD and competitive analysis](docs/PRD.md) · [Architecture & design decisions](docs/ARCHITECTURE.md) · [Setup & deploy](docs/SETUP.md) · [Evaluation results](eval/RESULTS.md)
 
