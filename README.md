@@ -2,7 +2,7 @@
 
 **AI listing localization for cross-border sellers.** Sellers anywhere (China, Vietnam, Korea, Latin America…) selling on Amazon US and TikTok Shop US paste their product notes in their own language and get a US-ready title, five bullets, a description and backend search terms, then a compliance check that highlights wording likely to get the listing removed, with a reason and a one-click fix.
 
-- **Live app:** _add your Vercel URL here_
+- **Live app:** https://listing-copilot-nine.vercel.app
 - **Stack:** Next.js 15 · TypeScript · Tailwind · Supabase (Auth + Postgres/RLS) · Claude API · Stripe (test mode) · Vercel
 - **Docs:** [PRD](docs/PRD.md) · [Architecture & design decisions](docs/ARCHITECTURE.md) · [Setup & deploy](docs/SETUP.md)
 

@@ -6,12 +6,6 @@ const STEPS = [
   { n: "3", title: "Review, fix, export", body: "Risky words are highlighted with the reason and a rewrite. Fix with one click, copy or export CSV." },
 ];
 
-const BEFORE_AFTER = {
-  before: "硅胶折叠水杯 食品级 可折叠 便携 户外 露营 最好的水杯",
-  after: "Collapsible Silicone Water Cup, Foldable Portable Travel Cup for Camping, Hiking and Outdoor Use",
-  flags: ["“最好的 / best” removed: superlatives are not allowed in Amazon titles", "“food-grade” kept as a material fact, not as an approval claim"],
-};
-
 export default function Home() {
   return (
     <main>
@@ -40,22 +34,6 @@ export default function Home() {
               <p className="mt-2 text-sm text-slate-600">{s.body}</p>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 pb-20">
-        <div className="grid gap-6 rounded-2xl bg-slate-900 p-8 text-white sm:grid-cols-2">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">What you type (any language)</p>
-            <p className="mt-2 text-lg">{BEFORE_AFTER.before}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">What you get (Amazon title)</p>
-            <p className="mt-2 text-lg font-medium">{BEFORE_AFTER.after}</p>
-            <ul className="mt-4 space-y-1 text-sm text-slate-300">
-              {BEFORE_AFTER.flags.map((f) => <li key={f}>• {f}</li>)}
-            </ul>
-          </div>
         </div>
       </section>
     </main>

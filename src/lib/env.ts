@@ -14,7 +14,6 @@ const ServerEnv = z.object({
   CLAUDE_MODEL: z.string().default("claude-opus-5-5"),
   STRIPE_SECRET_KEY: z.string().startsWith("sk_"),
   STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
-  NEXT_PUBLIC_SITE_URL: z.string().url().default("http://localhost:3000"),
 });
 
 export type ServerEnv = z.infer<typeof ServerEnv>;

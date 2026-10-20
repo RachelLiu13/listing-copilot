@@ -41,7 +41,7 @@ stripe listen --forward-to localhost:3000/api/stripe/webhook   # prints a whsec_
 
 1. Push the repository to GitHub.
 2. <https://vercel.com> → Add New Project → import the repository (framework: Next.js, defaults are fine).
-3. Add every variable from `.env.example` under Settings → Environment Variables (set `NEXT_PUBLIC_SITE_URL` to the Vercel URL).
+3. Add every variable from `.env.example` under Settings → Environment Variables.
 4. Deploy, then add the Stripe webhook (step 3.4) and redeploy once so the new `STRIPE_WEBHOOK_SECRET` is picked up.
 5. Check `https://YOUR-APP.vercel.app/api/health`: all three services should be `true`.
 
