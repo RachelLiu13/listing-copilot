@@ -63,6 +63,8 @@ export interface Deps {
   llm: LLM;
   /** Marketplace search suggestions; omitted in tests. */
   suggest?: Suggest;
+  /** The reader's interface language when it is not English; explanations use it instead of the notes' language. */
+  readerLanguage?: string;
 }
 
 export interface Extraction {
@@ -196,7 +198,7 @@ export async function complete(input: ListingInput, ex: Extraction, deps: Deps, 
     inputWarnings: ex.inputWarnings,
     usage: meter.usage,
   };
-  result.native = await explain(result, deps.llm, meter, progress);
+  result.native = await explain(result, deps.llm, meter, progress, deps.readerLanguage);
   result.usage = meter.usage;
   return result;
 }
@@ -248,9 +250,13 @@ async function review(copy: ListingCopy, platform: Platform, facts: ProductFacts
   return { compliance, unsupportedClaims };
 }
 
-/** The review in the seller's own language, with a back-translation. Skipped for English readers of English listings. */
-async function explain(result: ListingResult, llm: LLM, meter: Meter, progress: Progress = () => {}): Promise<NativeReview | undefined> {
-  const language = result.facts.input_language || "English";
+/**
+ * The review in the seller's own language, with a back-translation: the interface
+ * language they chose, else the language of their notes. Skipped for English
+ * readers of English listings.
+ */
+async function explain(result: ListingResult, llm: LLM, meter: Meter, progress: Progress = () => {}, readerLanguage?: string): Promise<NativeReview | undefined> {
+  const language = readerLanguage || result.facts.input_language || "English";
   if (isEnglish(language) && /English/.test(PLATFORMS[result.platform].language)) return undefined;
   progress("explain", "running");
   const out = await meter.call(llm, {
@@ -277,9 +283,9 @@ async function explain(result: ListingResult, llm: LLM, meter: Meter, progress: 
 }
 
 /** Refresh the native-language review after edits. */
-export async function refreshExplanation(result: ListingResult, llm: LLM): Promise<{ native: NativeReview | undefined; usage: StepUsage[] }> {
+export async function refreshExplanation(result: ListingResult, llm: LLM, readerLanguage?: string): Promise<{ native: NativeReview | undefined; usage: StepUsage[] }> {
   const meter = new Meter();
-  const native = await explain(result, llm, meter);
+  const native = await explain(result, llm, meter, undefined, readerLanguage);
   return { native, usage: meter.usage };
 }
 
@@ -380,16 +386,17 @@ export async function audit(input: AuditInput, deps: Deps, progress: Progress = 
     inputWarnings,
     usage: meter.usage,
   };
-  result.native = await explain(result, deps.llm, meter, progress);
+  result.native = await explain(result, deps.llm, meter, progress, deps.readerLanguage);
   result.usage = meter.usage;
   return result;
 }
 
 // ---------------------------------------------------------------- appeal assistant
 
-export async function draftAppeal(notice: string, sellerNote: string, listing: ListingResult | null, llm: LLM): Promise<{ appeal: AppealResult; usage: StepUsage[] }> {
+export async function draftAppeal(notice: string, sellerNote: string, listing: ListingResult | null, llm: LLM, readerLanguage?: string): Promise<{ appeal: AppealResult; usage: StepUsage[] }> {
   const meter = new Meter();
   const parts = [`<notice>\n${clean(notice).replace(/<\/?notice>/gi, "")}\n</notice>`];
+  if (readerLanguage) parts.push(`Interface language: ${readerLanguage}`);
   if (sellerNote.trim()) parts.push(`<seller_note>\n${clean(sellerNote).replace(/<\/?seller_note>/gi, "")}\n</seller_note>`);
   if (listing) parts.push(json("listing", { marketplace: PLATFORMS[listing.platform].label, ...fieldsOf(listing.copy), seller_evidence: listing.evidence ?? [] }));
   const appeal = await meter.call(llm, { step: "appeal", system: P.APPEAL_SYSTEM, content: [text(parts.join("\n\n"))], schema: AppealSchema, effort: "medium", maxTokens: 6000 });

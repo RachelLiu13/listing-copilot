@@ -6,17 +6,21 @@ import Link from "next/link";
 import EvidencePicker from "@/components/EvidencePicker";
 import Progress, { upsertStep, type StepState } from "@/components/Progress";
 import { MARKETS, readNdjson, type MarketId } from "@/lib/client/ndjson";
+import { useT } from "@/lib/i18n/client";
+import type { Dict } from "@/lib/i18n/dict";
+import { errorText } from "@/lib/i18n/errors";
 
 type Image = { mediaType: "image/jpeg"; data: string; preview: string; borderWhite: number };
 
-const FIELDS: { key: string; label: string; placeholder: string; rows?: number; required?: boolean }[] = [
-  { key: "productName", label: "Product name", placeholder: "e.g. 硅胶折叠水杯 · Ly silicon gấp gọn · Taza plegable de silicona", required: true },
-  { key: "brand", label: "Brand (optional)", placeholder: "Your own brand name" },
-  { key: "sellingPoints", label: "Selling points", placeholder: "Folds to 2 cm, hanging hook, one-piece leak-proof body…", rows: 4 },
-  { key: "material", label: "Material", placeholder: "Food-grade silicone + PP lid" },
-  { key: "dimensions", label: "Size, capacity, quantity", placeholder: "9 cm tall, 350 ml, set of 2" },
-  { key: "targetAudience", label: "Who buys it", placeholder: "Campers, hikers, travelers" },
-  { key: "notes", label: "Other notes", placeholder: "Colors: gray, green. Dishwasher safe.", rows: 3 },
+type FieldKey = keyof Dict["newListing"]["fields"];
+const FIELDS: { key: FieldKey; rows?: number; required?: boolean }[] = [
+  { key: "productName", required: true },
+  { key: "brand" },
+  { key: "sellingPoints", rows: 4 },
+  { key: "material" },
+  { key: "dimensions" },
+  { key: "targetAudience" },
+  { key: "notes", rows: 3 },
 ];
 
 /**
@@ -47,6 +51,8 @@ async function prepareImage(file: File): Promise<Image> {
 }
 
 export default function NewListingForm() {
+  const T = useT();
+  const t = T.newListing;
   const router = useRouter();
   const [platform, setPlatform] = useState<MarketId>("amazon_us");
   const [values, setValues] = useState<Record<string, string>>({});
@@ -71,12 +77,12 @@ export default function NewListingForm() {
   async function onImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) return setError("Please choose an image file.");
+    if (!file.type.startsWith("image/")) return setError(t.notImage);
     try {
       setImage(await prepareImage(file));
       setError(null);
     } catch {
-      setError("That image could not be read. Try a JPG or PNG.");
+      setError(t.imageError);
     }
   }
 
@@ -100,7 +106,7 @@ export default function NewListingForm() {
         const body = await res.json().catch(() => null);
         if (res.status === 402) return setNoCredits(true);
         if (res.status === 401) return router.push("/login?next=/listings/new");
-        throw new Error(body?.error?.message ?? `Request failed (${res.status})`);
+        throw new Error(errorText(T, body?.error));
       }
       const finished = await readNdjson(res, (ev) => {
         switch (ev.type) {
@@ -117,16 +123,16 @@ export default function NewListingForm() {
             setNoCredits(true);
             return true;
           case "error":
-            setError(String(ev.message));
+            setError(errorText(T, ev));
             return true;
           case "done":
             router.push(`/listings/${ev.id}`);
             return true;
         }
       });
-      if (!finished) setError("The connection closed before the listing was ready. If it appears in My listings, it was saved; otherwise please try again.");
+      if (!finished) setError(T.apiErrors.connection);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setError(err instanceof Error ? err.message : T.common.somethingWrong);
     } finally {
       setBusy(false);
     }
@@ -136,24 +142,24 @@ export default function NewListingForm() {
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
       <form onSubmit={generate} className="space-y-5">
         <div>
-          <p className="text-sm font-medium text-slate-700">Marketplace</p>
+          <p className="text-sm font-medium text-slate-700">{T.marketplace}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {MARKETS.map((m) => (
               <button type="button" key={m.id} onClick={() => setPlatform(m.id)} className={`rounded-lg px-3 py-2 text-sm font-medium ring-1 ${platform === m.id ? "bg-indigo-600 text-white ring-indigo-600" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50"}`}>
-                {m.label}
+                {T.markets[m.id]}
               </button>
             ))}
           </div>
-          <p className="mt-1 text-xs text-slate-500">The listing is written in the marketplace&apos;s language and checked against its rules. Explanations come back in your language.</p>
+          <p className="mt-1 text-xs text-slate-500">{T.marketHint}</p>
         </div>
 
         {FIELDS.map((f) => (
           <label key={f.key} className="block text-sm">
-            <span className="font-medium text-slate-700">{f.label}</span>
+            <span className="font-medium text-slate-700">{t.fields[f.key].label}</span>
             {f.rows ? (
-              <textarea rows={f.rows} maxLength={f.key === "sellingPoints" ? 3000 : 2000} value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none" />
+              <textarea rows={f.rows} maxLength={f.key === "sellingPoints" ? 3000 : 2000} value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} placeholder={t.fields[f.key].placeholder} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none" />
             ) : (
-              <input required={f.required} maxLength={f.key === "productName" ? 200 : 300} value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none" />
+              <input required={f.required} maxLength={f.key === "productName" ? 200 : 300} value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} placeholder={t.fields[f.key].placeholder} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none" />
             )}
           </label>
         ))}
@@ -161,22 +167,22 @@ export default function NewListingForm() {
         <EvidencePicker value={evidence} onChange={setEvidence} />
 
         <div className="text-sm">
-          <span className="font-medium text-slate-700">Main image (optional)</span>
+          <span className="font-medium text-slate-700">{t.image}</span>
           <div className="mt-2 flex items-center gap-4">
             {image && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={image.preview} alt="Product" className="h-20 w-20 rounded-lg object-cover ring-1 ring-slate-200" />
             )}
             <input type="file" accept="image/jpeg,image/png,image/webp" onChange={onImage} className="text-sm" />
-            {image && <button type="button" onClick={() => setImage(null)} className="text-slate-500 hover:underline">Remove</button>}
+            {image && <button type="button" onClick={() => setImage(null)} className="text-slate-500 hover:underline">{T.common.remove}</button>}
           </div>
-          <p className="mt-1 text-xs text-slate-500">Used once to read visible details and to check main-image rules (white background, no text). It is not stored.</p>
+          <p className="mt-1 text-xs text-slate-500">{t.imageNote}</p>
         </div>
 
         <button disabled={busy} className="w-full rounded-lg bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-500 disabled:opacity-60">
-          {busy ? "Working…" : "Generate listing (1 credit)"}
+          {busy ? T.common.working : t.generate}
         </button>
-        <p className="text-center text-xs text-slate-500">You are only charged when a full listing is written. Questions and failures are free.</p>
+        <p className="text-center text-xs text-slate-500">{t.chargeNote}</p>
       </form>
 
       <aside ref={statusRef} className="scroll-mt-20 space-y-4">
@@ -185,18 +191,18 @@ export default function NewListingForm() {
 
         {questions && (
           <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-5">
-            <p className="text-sm font-semibold text-indigo-900">Need a little more information (no credit used)</p>
+            <p className="text-sm font-semibold text-indigo-900">{t.needInfo}</p>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-indigo-900">{questions.map((q) => <li key={q}>{q}</li>)}</ul>
-            <textarea rows={3} value={answers} onChange={(e) => setAnswers(e.target.value)} placeholder="Answer here in any language, or add the details to the form" className="mt-3 w-full rounded-lg border border-indigo-200 px-3 py-2 text-sm focus:outline-none" />
-            <button onClick={() => generate()} disabled={busy || !answers.trim()} className="mt-2 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Continue</button>
+            <textarea rows={3} value={answers} onChange={(e) => setAnswers(e.target.value)} placeholder={t.answerPlaceholder} className="mt-3 w-full rounded-lg border border-indigo-200 px-3 py-2 text-sm focus:outline-none" />
+            <button onClick={() => generate()} disabled={busy || !answers.trim()} className="mt-2 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{t.continue}</button>
           </div>
         )}
 
         {noCredits && (
           <div className="rounded-2xl border border-slate-200 p-5 text-sm">
-            <p className="font-semibold text-slate-900">You have used your credits</p>
-            <p className="mt-1 text-slate-600">Buy a credit pack or go Pro to keep writing. Nothing was charged for this attempt.</p>
-            <Link href="/pricing" className="mt-3 inline-block font-semibold text-indigo-600 hover:underline">See plans →</Link>
+            <p className="font-semibold text-slate-900">{t.noCreditsTitle}</p>
+            <p className="mt-1 text-slate-600">{t.noCreditsBody}</p>
+            <Link href="/pricing" className="mt-3 inline-block font-semibold text-indigo-600 hover:underline">{T.common.seePlans}</Link>
           </div>
         )}
 

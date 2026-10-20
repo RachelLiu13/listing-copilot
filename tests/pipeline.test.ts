@@ -123,6 +123,14 @@ describe("steps 2-5: complete", () => {
     expect(result.native).toBeUndefined();
   });
 
+  it("explains in the interface language the reader chose, even when they wrote in English", async () => {
+    const { llm, calls } = fakeLLM({ extract: english, keywords, write: goodCopy, compliance: { findings: [] }, grounding: { unsupported: [] }, explain: explainAnswer });
+    const deps = { llm, readerLanguage: "Japanese" };
+    const result = await complete(input, await extract(input, deps), deps);
+    expect(calls).toContain("explain");
+    expect(result.native?.language).toBe("Japanese");
+  });
+
   it("feeds real search-box phrases to the keyword step and keeps them", async () => {
     const seen: string[] = [];
     const { llm } = fakeLLM({ extract: english, keywords, write: goodCopy, compliance: { findings: [] }, grounding: { unsupported: [] } });

@@ -6,6 +6,8 @@ import { checkRateLimit, recordEvent } from "@/lib/account";
 import { currentUser, supabaseAdmin } from "@/lib/supabase/server";
 import { getLLM } from "@/lib/server/llm";
 import { jsonError } from "@/lib/server/http";
+import { explainLanguageFor } from "@/lib/i18n/locales";
+import { localeOf } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -13,7 +15,7 @@ export const maxDuration = 120;
 const MAX_REWRITES = 10;
 
 /** Refresh the review in the seller's language after edits. Counts as one AI rewrite. */
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return jsonError(401, "unauthenticated", "Please sign in.");
   const { id } = await params;
@@ -27,13 +29,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   await recordEvent(user.id, "explain", "started");
   try {
     const current = row.result as ListingResult;
-    const { native, usage } = await refreshExplanation(current, getLLM());
+    const { native, usage } = await refreshExplanation(current, getLLM(), explainLanguageFor(localeOf(req)));
     const result: ListingResult = { ...current, native, usage: [...current.usage, ...usage] };
     await db.from("listings").update({ result, rewrites: row.rewrites + 1, updated_at: new Date().toISOString() }).eq("id", id).eq("user_id", user.id);
     await recordEvent(user.id, "explain", "complete", id, usage);
     return NextResponse.json({ result, rewritesLeft: MAX_REWRITES - row.rewrites - 1 });
   } catch (err) {
     await recordEvent(user.id, "explain", "failed", err instanceof Error ? err.message : String(err));
-    return jsonError(502, "explain_failed", err instanceof AIError ? USER_MESSAGES[err.kind] : "Could not refresh the explanation. Please try again.");
+    return jsonError(502, "explain_failed", err instanceof AIError ? USER_MESSAGES[err.kind] : "Could not refresh the explanation. Please try again.", { ai: err instanceof AIError ? err.kind : undefined });
   }
 }

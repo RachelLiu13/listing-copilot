@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { useT } from "@/lib/i18n/client";
 
 export default function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
+  const { login: t, common } = useT();
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") ?? "/dashboard";
@@ -13,7 +15,7 @@ export default function LoginForm({ googleEnabled }: { googleEnabled: boolean })
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "error" | "info"; text: string } | null>(
-    params.get("error") ? { kind: "error", text: "That sign-in link has expired. Please sign in again." } : null,
+    params.get("error") ? { kind: "error", text: t.expired } : null,
   );
 
   async function submit(e: React.FormEvent) {
@@ -30,7 +32,7 @@ export default function LoginForm({ googleEnabled }: { googleEnabled: boolean })
         });
         if (error) throw error;
         if (!data.session) {
-          setMessage({ kind: "info", text: "Check your inbox to confirm your email, then sign in." });
+          setMessage({ kind: "info", text: t.checkInbox });
           return;
         }
       } else {
@@ -40,8 +42,8 @@ export default function LoginForm({ googleEnabled }: { googleEnabled: boolean })
       router.replace(next);
       router.refresh();
     } catch (err) {
-      const text = err instanceof Error ? err.message : "Something went wrong.";
-      setMessage({ kind: "error", text: text.includes("Invalid login") ? "Wrong email or password." : text });
+      const text = err instanceof Error ? err.message : common.somethingWrong;
+      setMessage({ kind: "error", text: text.includes("Invalid login") ? t.wrong : text });
     } finally {
       setBusy(false);
     }
@@ -57,37 +59,37 @@ export default function LoginForm({ googleEnabled }: { googleEnabled: boolean })
 
   return (
     <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-      <h1 className="text-2xl font-semibold text-slate-900">{mode === "signin" ? "Sign in" : "Create your account"}</h1>
-      <p className="mt-1 text-sm text-slate-500">{mode === "signup" ? "Your first 3 listings are free." : "Welcome back."}</p>
+      <h1 className="text-2xl font-semibold text-slate-900">{mode === "signin" ? t.signIn : t.create}</h1>
+      <p className="mt-1 text-sm text-slate-500">{mode === "signup" ? t.freeNote : t.welcome}</p>
 
       {googleEnabled && (
         <>
           <button onClick={google} className="mt-6 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium hover:bg-slate-50">
-            Continue with Google
+            {t.google}
           </button>
           <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
-            <span className="h-px flex-1 bg-slate-200" />or<span className="h-px flex-1 bg-slate-200" />
+            <span className="h-px flex-1 bg-slate-200" />{t.or}<span className="h-px flex-1 bg-slate-200" />
           </div>
         </>
       )}
 
       <form onSubmit={submit} className={googleEnabled ? "space-y-4" : "mt-6 space-y-4"}>
         <label className="block text-sm">
-          <span className="font-medium text-slate-700">Email</span>
+          <span className="font-medium text-slate-700">{t.email}</span>
           <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none" />
         </label>
         <label className="block text-sm">
-          <span className="font-medium text-slate-700">Password</span>
+          <span className="font-medium text-slate-700">{t.password}</span>
           <input type="password" required minLength={8} autoComplete={mode === "signup" ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none" />
         </label>
         {message && <p className={`text-sm ${message.kind === "error" ? "text-red-600" : "text-emerald-700"}`}>{message.text}</p>}
         <button disabled={busy} className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60">
-          {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+          {busy ? t.wait : mode === "signin" ? t.signIn : t.createButton}
         </button>
       </form>
 
       <button onClick={() => setMode(mode === "signin" ? "signup" : "signin")} className="mt-5 w-full text-center text-sm text-indigo-600 hover:underline">
-        {mode === "signin" ? "New here? Create an account" : "Already have an account? Sign in"}
+        {mode === "signin" ? t.toSignup : t.toSignin}
       </button>
     </div>
   );

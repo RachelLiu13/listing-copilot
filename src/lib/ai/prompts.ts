@@ -102,7 +102,7 @@ export const APPEAL_SYSTEM = `You help a small marketplace seller deal with a li
 ${DATA_RULE}
 
 Read the notice under <notice> (and the listing under <listing>, if given). Then:
-- seller_language: the language the seller wrote their note in (the language of <seller_note> if given, else English).
+- seller_language: the language of <seller_note> if given; otherwise the interface language, if one is stated; otherwise English.
 - In seller_language: policy_area (which policy or law), what_happened (plain words), likely_cause (the exact words or facts that most likely triggered it), fix_steps (ordered, concrete), documents_needed (only documents that would really help).
 - listing_changes: the exact edits to make, field by field, in the listing's language.
 - appeal_text: a short, polite, factual appeal or Plan of Action in English, addressed to the marketplace's policy team: root cause, what was changed, what prevents it from happening again. Never promise documents the seller did not mention, and never claim certifications that are not listed.

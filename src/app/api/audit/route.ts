@@ -6,6 +6,8 @@ import { currentUser, supabaseAdmin } from "@/lib/supabase/server";
 import { getDeps } from "@/lib/server/llm";
 import { jsonError, readJson } from "@/lib/server/http";
 import { ndjson } from "@/lib/server/stream";
+import { explainLanguageFor } from "@/lib/i18n/locales";
+import { localeOf } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -33,7 +35,7 @@ export async function POST(req: Request) {
         send({ type: "no_credits" });
         return;
       }
-      const result = await audit(input, getDeps(), progress);
+      const result = await audit(input, { ...getDeps(), readerLanguage: explainLanguageFor(localeOf(req)) }, progress);
       const { data, error } = await supabaseAdmin()
         .from("listings")
         .insert({
@@ -55,7 +57,7 @@ export async function POST(req: Request) {
       if (charge === "charged") await refundCredit(user.id);
       console.error("audit failed", { user: user.id, error: err instanceof Error ? err.message : String(err) });
       await recordEvent(user.id, "audit", "failed", err instanceof Error ? err.message : String(err));
-      send({ type: "error", message: err instanceof AIError ? USER_MESSAGES[err.kind] : "The audit failed. Please try again; you were not charged." });
+      send({ type: "error", code: err instanceof AIError ? `ai_${err.kind}` : "failed", message: err instanceof AIError ? USER_MESSAGES[err.kind] : "The audit failed. Please try again; you were not charged." });
     }
   });
 }

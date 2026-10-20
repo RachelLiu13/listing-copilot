@@ -1,25 +1,31 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Header from "@/components/Header";
+import { LocaleProvider } from "@/lib/i18n/client";
+import { getLocale, getT } from "@/lib/i18n/server";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-export const metadata: Metadata = {
-  title: "Listing Copilot · US-ready listings for cross-border sellers",
-  description: "Turn product notes in any language into Amazon US and TikTok Shop US listings that read naturally, rank on US search terms and pass a compliance check.",
-};
+const HTML_LANG = { en: "en", zh: "zh-CN", vi: "vi", es: "es", ja: "ja" } as const;
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t.meta.title, description: t.meta.description };
+}
+
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const locale = await getLocale();
+  const t = await getT();
   return (
-    <html lang="en">
+    <html lang={HTML_LANG[locale]}>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
-        <Header />
-        {children}
-        <footer className="border-t border-slate-200 py-8 text-center text-xs text-slate-400">
-          Listing Copilot · AI drafts are suggestions: review every listing before you publish it.
-        </footer>
+        <LocaleProvider locale={locale}>
+          <Header />
+          {children}
+          <footer className="border-t border-slate-200 py-8 text-center text-xs text-slate-400">{t.footer}</footer>
+        </LocaleProvider>
       </body>
     </html>
   );

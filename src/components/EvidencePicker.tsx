@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useT } from "@/lib/i18n/client";
 
 type Item = { id: string; name: string; kind: string; reference: string };
 
 /** Lets the seller tick which documents from their evidence library apply to this product. */
 export default function EvidencePicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const t = useT();
   const [items, setItems] = useState<Item[] | null>(null);
 
   useEffect(() => {
@@ -21,12 +23,12 @@ export default function EvidencePicker({ value, onChange }: { value: string[]; o
 
   return (
     <div className="text-sm">
-      <span className="font-medium text-slate-700">Documents you hold for this product (optional)</span>
-      <p className="mt-0.5 text-xs text-slate-500">Claims backed by a document can stay; claims without one are rewritten. <Link href="/evidence" className="text-indigo-600 hover:underline">Manage your documents</Link></p>
+      <span className="font-medium text-slate-700">{t.evidencePicker.label}</span>
+      <p className="mt-0.5 text-xs text-slate-500">{t.evidencePicker.hint} <Link href="/evidence" className="text-indigo-600 hover:underline">{t.evidencePicker.manage}</Link></p>
       {items === null ? (
-        <p className="mt-2 text-xs text-slate-400">Loading…</p>
+        <p className="mt-2 text-xs text-slate-400">{t.common.loading}</p>
       ) : items.length === 0 ? (
-        <p className="mt-2 text-xs text-slate-500">No documents yet. Add test reports or certificates in <Link href="/evidence" className="text-indigo-600 hover:underline">your evidence library</Link>.</p>
+        <p className="mt-2 text-xs text-slate-500">{t.evidencePicker.none} <Link href="/evidence" className="text-indigo-600 hover:underline">{t.evidencePicker.library}</Link>.</p>
       ) : (
         <div className="mt-2 flex flex-wrap gap-2">
           {items.map((i) => {

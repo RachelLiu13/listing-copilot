@@ -6,6 +6,8 @@ import { currentUser, supabaseAdmin } from "@/lib/supabase/server";
 import { getDeps } from "@/lib/server/llm";
 import { jsonError, readJson } from "@/lib/server/http";
 import { ndjson } from "@/lib/server/stream";
+import { explainLanguageFor } from "@/lib/i18n/locales";
+import { localeOf } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -39,7 +41,7 @@ export async function POST(req: Request) {
 
   return ndjson(async (send) => {
     const progress = (step: StepName, status: "running" | "done", detail?: string) => send({ type: "step", step, status, label: STEP_LABELS[step], detail });
-    const deps = getDeps();
+    const deps = { ...getDeps(), readerLanguage: explainLanguageFor(localeOf(req)) };
     let charge: ChargeResult | null = null;
 
     await recordEvent(user.id, "generate", "started");
@@ -84,7 +86,7 @@ export async function POST(req: Request) {
       const message = err instanceof AIError ? USER_MESSAGES[err.kind] : "Something went wrong while writing your listing. Please try again; you were not charged.";
       console.error("generate failed", { user: user.id, step: err instanceof AIError ? err.step : undefined, error: err instanceof Error ? err.message : String(err) });
       await recordEvent(user.id, "generate", "failed", err instanceof Error ? err.message : String(err));
-      send({ type: "error", message });
+      send({ type: "error", code: err instanceof AIError ? `ai_${err.kind}` : "failed", message });
     }
   });
 }

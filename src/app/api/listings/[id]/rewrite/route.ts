@@ -45,6 +45,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   } catch (err) {
     await recordEvent(user.id, "rewrite", "failed", err instanceof Error ? err.message : String(err));
     const message = err instanceof AIError ? USER_MESSAGES[err.kind] : "The rewrite failed. Please try again.";
-    return jsonError(err instanceof AIError && err.kind === "rate_limited" ? 429 : 502, "rewrite_failed", message);
+    return jsonError(err instanceof AIError && err.kind === "rate_limited" ? 429 : 502, "rewrite_failed", message, { ai: err instanceof AIError ? err.kind : undefined });
   }
 }

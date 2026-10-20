@@ -115,3 +115,5 @@ The response is newline-delimited JSON, so the page shows each step as it finish
 17. **Audit and appeal reuse the same parts.** An audit runs extract → review → minimal fix → review again, storing the original and both risk scores. The appeal assistant reads the notice (and the listing, if picked) and returns cause, fixes and an English appeal, explained in the seller's language.
 
 18. **Evaluation.** `npm run eval` scores the rule layer on a labelled set (eval/RESULTS.md) and fails if recall drops below 85% or false alarms exceed 15%.
+
+19. **The interface speaks the seller's language too.** Every page is available in English, 简体中文, Tiếng Việt, Español and 日本語. The first visit follows the browser's language; a menu in the header (it works before signing in) saves the choice in a cookie. Dictionaries share one TypeScript type, so a missing string fails the build. API errors carry a stable code that the page turns into the reader's language, and the AI explanations, back-translation and appeal guidance follow the chosen interface language.

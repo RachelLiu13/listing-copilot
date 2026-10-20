@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   try {
     const supabase = await supabaseForUser();
     const { data } = await supabase.from("listings").select("product_name").eq("id", id).maybeSingle();
-    return { title: `${data?.product_name ?? "Listing"} · Listing Copilot` };
+    return { title: `${data?.product_name ?? "Listing Copilot"} · Listing Copilot` };
   } catch {
     return { title: "Listing · Listing Copilot" };
   }

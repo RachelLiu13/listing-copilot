@@ -18,11 +18,12 @@ export async function readNdjson(res: Response, onEvent: (event: Record<string, 
   return false;
 }
 
+/** Marketplace ids in menu order; labels come from the dictionary (t.markets). */
 export const MARKETS = [
-  { id: "amazon_us", label: "Amazon US" },
-  { id: "tiktok_us", label: "TikTok Shop US" },
-  { id: "amazon_uk", label: "Amazon UK" },
-  { id: "amazon_de", label: "Amazon DE (German)" },
-  { id: "amazon_jp", label: "Amazon JP (Japanese)" },
+  { id: "amazon_us" },
+  { id: "tiktok_us" },
+  { id: "amazon_uk" },
+  { id: "amazon_de" },
+  { id: "amazon_jp" },
 ] as const;
 export type MarketId = (typeof MARKETS)[number]["id"];

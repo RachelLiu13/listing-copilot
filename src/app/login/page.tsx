@@ -1,7 +1,10 @@
 import { Suspense } from "react";
+import { getT } from "@/lib/i18n/server";
 import LoginForm from "./LoginForm";
 
-export const metadata = { title: "Sign in · Listing Copilot" };
+export async function generateMetadata() {
+  return { title: (await getT()).login.metaTitle };
+}
 
 export default function LoginPage() {
   return (

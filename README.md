@@ -33,6 +33,8 @@ Writing a listing with AI is no longer rare: Amazon offers it for free, and Heli
 | 4. Check limits | Length, forbidden characters, word repeats, bullet count, search-term bytes (any script); one AI repair, then code enforces | TypeScript + Claude |
 | 5. Review | Category rule pack + AI review (market-specific law) + fact check, risk score, then everything explained in the seller's language with a back-translation | Code + 3 Claude calls |
 
+**Interface in 5 languages:** English, 简体中文, Tiếng Việt, Español, 日本語, picked from the browser and switchable from the header, even before signing in. AI explanations follow the chosen language.
+
 **Also:** audit and fix a live listing · bulk CSV (50 rows) · takedown/appeal assistant · evidence library · free re-check of every listing when the rules are updated · section rewrite, manual edit, copy, CSV export.
 
 **Pricing:** 3 free credits · $4.99 for 20 credits · $9.99/month unlimited (Stripe Checkout, test mode: card `4242 4242 4242 4242`). One credit = one listing, audit or appeal.
