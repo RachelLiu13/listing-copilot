@@ -1,0 +1,80 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import BuyButton from "@/components/BuyButton";
+import { ensureProfile, isActivePro } from "@/lib/account";
+import { PLATFORMS, isPlatform } from "@/lib/listing/platforms";
+import type { ListingResult } from "@/lib/listing/types";
+import { currentUser, supabaseForUser } from "@/lib/supabase/server";
+
+export const metadata = { title: "My listings · Listing Copilot" };
+export const dynamic = "force-dynamic";
+
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
+  const user = await currentUser();
+  if (!user) redirect("/login?next=/dashboard");
+  const { checkout } = await searchParams;
+  const profile = await ensureProfile(user.id, user.email ?? "");
+  const pro = isActivePro(profile);
+
+  // Read through the user's own session: Row Level Security returns only their rows.
+  const supabase = await supabaseForUser();
+  const { data: listings } = await supabase.from("listings").select("id,platform,product_name,result,created_at").order("created_at", { ascending: false }).limit(100);
+
+  return (
+    <main className="mx-auto max-w-5xl px-4 py-10">
+      {checkout === "success" && (
+        <p className="mb-6 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">Payment received, thank you. Your credits or Pro plan appear here within a few seconds; refresh if they have not yet.</p>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">My listings</h1>
+          <p className="mt-1 text-sm text-slate-500">{user.email}</p>
+        </div>
+        <Link href="/listings/new" className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500">+ New listing</Link>
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 p-5">
+        <div className="flex-1">
+          <p className="text-sm text-slate-500">Plan</p>
+          <p className="text-lg font-semibold">{pro ? "Pro: unlimited listings" : `${profile.credits} listing credit${profile.credits === 1 ? "" : "s"} left`}</p>
+          {pro && profile.pro_until && <p className="text-xs text-slate-500">Active until {new Date(profile.pro_until).toLocaleDateString()}</p>}
+        </div>
+        {!pro && (
+          <div className="flex w-full gap-3 sm:w-auto">
+            <BuyButton offer="credit_pack" label="Buy 20 credits ($4.99)" />
+            <BuyButton offer="pro_monthly" label="Go Pro ($9.99/mo)" primary />
+          </div>
+        )}
+      </div>
+
+      {!listings?.length ? (
+        <div className="mt-10 rounded-2xl border border-dashed border-slate-300 p-12 text-center">
+          <p className="text-slate-600">No listings yet.</p>
+          <Link href="/listings/new" className="mt-4 inline-block text-sm font-semibold text-indigo-600 hover:underline">Write your first listing →</Link>
+        </div>
+      ) : (
+        <ul className="mt-8 divide-y divide-slate-200 rounded-2xl border border-slate-200">
+          {listings.map((l) => {
+            const r = l.result as ListingResult | null;
+            const high = r?.compliance.filter((f) => f.severity === "high").length ?? 0;
+            return (
+              <li key={l.id}>
+                <Link href={`/listings/${l.id}`} className="flex items-center gap-4 p-4 hover:bg-slate-50">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-slate-900">{r?.copy.title ?? l.product_name}</p>
+                    <p className="mt-0.5 truncate text-sm text-slate-500">{l.product_name} · {isPlatform(l.platform) ? PLATFORMS[l.platform].label : l.platform} · {new Date(l.created_at).toLocaleDateString()}</p>
+                  </div>
+                  {high > 0 ? (
+                    <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">{high} high risk</span>
+                  ) : (
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">No high risks</span>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </main>
+  );
+}

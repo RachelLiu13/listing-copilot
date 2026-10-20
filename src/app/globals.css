@@ -1,26 +1,16 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: #ffffff;
+  color: #0f172a;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+/* Highlight for phrases flagged by the compliance check. */
+mark.risk-high { background: #fee2e2; color: inherit; border-bottom: 2px solid #ef4444; padding: 0 1px; }
+mark.risk-medium { background: #fef3c7; color: inherit; border-bottom: 2px solid #f59e0b; padding: 0 1px; }
+mark.unconfirmed { background: #e0e7ff; color: inherit; border-bottom: 2px dashed #6366f1; padding: 0 1px; }

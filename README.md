@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Listing Copilot
 
-## Getting Started
+**AI listing localization for cross-border sellers.** Sellers anywhere (China, Vietnam, Korea, Latin America…) selling on Amazon US and TikTok Shop US paste their product notes in their own language and get a US-ready title, five bullets, a description and backend search terms, then a compliance check that highlights wording likely to get the listing removed, with a reason and a one-click fix.
 
-First, run the development server:
+- **Live app:** _add your Vercel URL here_
+- **Stack:** Next.js 15 · TypeScript · Tailwind · Supabase (Auth + Postgres/RLS) · Claude API · Stripe (test mode) · Vercel
+- **Docs:** [PRD](docs/PRD.md) · [Architecture & design decisions](docs/ARCHITECTURE.md) · [Setup & deploy](docs/SETUP.md)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## What it does
+
+| Step | What happens | How |
+| --- | --- | --- |
+| 1. Extract | Notes in any language (+ optional photo) → structured English facts. Too little information → 1-4 questions in the seller's language, **no credit spent** | Claude, structured output |
+| 2. Keywords | Facts → phrases US shoppers actually search, and phrases to avoid | Claude |
+| 3. Write | Title, 5 bullets, description, backend search terms in platform style | Claude |
+| 4. Check limits | Length, forbidden characters, word repeats, bullet count, search-term bytes; one AI repair, then code enforces | TypeScript + Claude |
+| 5. Review | Compliance: rule lexicon + AI review for implied claims. Grounding: anything the seller never said is marked *unconfirmed* | Code + 2 Claude calls in parallel |
+
+Then the seller can fix a finding with AI, rewrite one section, edit by hand (re-checked on save), copy, or export CSV.
+
+**Pricing:** 3 free listings · $4.99 for 20 credits · $9.99/month unlimited (Stripe Checkout, test mode: card `4242 4242 4242 4242`).
+
+## Architecture
+
+```mermaid
+flowchart LR
+  B[Browser] --> N[Next.js on Vercel]
+  N --> AI[5-step AI pipeline] --> C[(Claude API)]
+  N --> S[(Supabase Auth + Postgres RLS)]
+  N --> ST[(Stripe Checkout)]
+  ST -- signed webhook --> N
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Details, sequence diagram and the reasoning behind each choice: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Repository layout
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+  app/                     pages and API routes (Next.js App Router)
+    api/listings/          generate (streamed progress), edit, rewrite, export
+    api/checkout/          Stripe Checkout session
+    api/stripe/webhook/    verified webhook → credits / Pro
+    login/ dashboard/ listings/ pricing/
+  lib/
+    ai/                    pipeline.ts (5 steps), prompts.ts, claude.ts (SDK, retries, fallback), llm.ts (interface, errors)
+    listing/               platforms, compliance lexicon, limit validator, input guard, types/schemas (no I/O)
+    supabase/              user-scoped and service-role clients
+    account.ts billing.ts  credits, rate limits, Stripe event → action
+  middleware.ts            session refresh, route protection
+supabase/migrations/       schema, RLS policies, credit and payment functions
+tests/                     unit tests (fake model, no network)
+docs/                      PRD, architecture, setup
+```
 
-## Learn More
+## Reliability and safety
 
-To learn more about Next.js, take a look at the following resources:
+- **Errors never cost the seller:** a credit is spent only after step 1 succeeds and is refunded on any later failure.
+- **Model output is validated:** JSON Schema structured outputs, zod validation, one retry, typed errors with user-facing messages.
+- **Hallucination control:** grounding check against the extracted facts; AI compliance findings must quote text that is really in the listing.
+- **Prompt injection:** seller text is data inside `<seller_input>`, instruction-like text is flagged, outputs are schema-bound, no tools.
+- **Secrets:** server-side only (Vercel env vars); `.env.example` documents them. The browser never sees the Claude, Stripe or service-role keys.
+- **Payments:** granted only by the signature-verified webhook, once per Stripe event; credit functions are not callable from the browser.
+- **Abuse and cost:** per-user rate limits, rewrite cap per listing, token usage logged per step.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Development
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm install
+cp .env.example .env.local   # see docs/SETUP.md
+npm run dev
+npm run check                # type-check + lint + unit tests
+npm run build
+```
 
-## Deploy on Vercel
+## Next steps
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Publish directly through the Amazon SP-API / TikTok Shop API.
+- Replace estimated keywords with real search-volume data.
+- A/B test title variants against conversion.
+- More marketplaces (Amazon JP/EU) and bulk CSV upload.
+- An eval set of real listings to tune prompts and measure compliance recall.
