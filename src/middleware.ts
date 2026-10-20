@@ -21,7 +21,8 @@ export async function middleware(request: NextRequest) {
   const { data } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isAppPage = ["/dashboard", "/listings", "/audit", "/appeal", "/bulk", "/evidence"].some((p) => path.startsWith(p));
+  // Whole path segments only: "/bulk" is protected, "/bulk-template.csv" is a public file.
+  const isAppPage = ["/dashboard", "/listings", "/audit", "/appeal", "/bulk", "/evidence"].some((p) => path === p || path.startsWith(`${p}/`));
   if (isAppPage && !data.user) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
