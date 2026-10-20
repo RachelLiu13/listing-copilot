@@ -36,7 +36,7 @@ The job needs four skills at once: understanding product notes in any language, 
 | Amazon US/UK/DE/JP and TikTok Shop US, written in each market's language | Publishing via marketplace APIs |
 | Title, 5 bullets, description, backend search terms; real search-box phrases as keyword signals | A+ content, image editing |
 | Category rule packs, phrase-combination rules, AI review, 0-100 risk score | Legal advice |
-| Explanations and back-translation in the seller's language | Interface translation |
+| Explanations and back-translation in the seller's language; interface in English, 简体中文, Tiếng Việt, Español, 日本語 | More interface languages |
 | Evidence library: claims kept only with a document | Uploading and verifying the files |
 | Audit and fix a live listing; takedown/appeal assistant; bulk CSV; free re-check after rule updates | Scheduled re-scans, team accounts |
 | 3 free credits; $4.99 for 20; $9.99/month unlimited | Billing portal, invoices |
