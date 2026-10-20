@@ -36,3 +36,12 @@ describe("platform limits", () => {
     expect(copyIssues({ ...fixed, bullets: fixed.bullets.slice(0, 5) }, amazon).filter((i) => i.field !== "title")).toEqual([]);
   });
 });
+
+describe("non-Latin markets", () => {
+  it("cleans German and Japanese search terms by word, not by a-z", async () => {
+    const { PLATFORMS } = await import("@/lib/listing/platforms");
+    expect(normalizeSearchTerms(["faltbecher für reisen", "Becher silikon"], "Faltbarer Silikon Becher", 249)).toEqual(["faltbecher für reisen"]);
+    const jp = normalizeSearchTerms(["折りたたみ コップ", "シリコン カップ"], "シリコン 折りたたみ カップ", PLATFORMS.amazon_jp.searchTermsMaxBytes);
+    expect(jp).toEqual(["コップ"]);
+  });
+});

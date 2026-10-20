@@ -15,6 +15,10 @@ export default async function Header() {
           {user ? (
             <>
               <Link href="/dashboard" className="rounded-md px-2 py-1 text-slate-600 hover:text-slate-900">My listings</Link>
+              <Link href="/audit" className="hidden rounded-md px-2 py-1 text-slate-600 hover:text-slate-900 md:inline">Audit</Link>
+              <Link href="/bulk" className="hidden rounded-md px-2 py-1 text-slate-600 hover:text-slate-900 md:inline">Bulk</Link>
+              <Link href="/appeal" className="hidden rounded-md px-2 py-1 text-slate-600 hover:text-slate-900 md:inline">Takedown help</Link>
+              <Link href="/evidence" className="hidden rounded-md px-2 py-1 text-slate-600 hover:text-slate-900 lg:inline">Evidence</Link>
               <form action="/auth/signout" method="post">
                 <button className="rounded-md px-2 py-1 text-slate-600 hover:text-slate-900">Sign out</button>
               </form>

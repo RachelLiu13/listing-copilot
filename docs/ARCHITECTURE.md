@@ -73,6 +73,10 @@ The response is newline-delimited JSON, so the page shows each step as it finish
 | `listings` | seller input (no photo) and the full result | server only; users read their own rows (RLS) |
 | `generation_events` | every attempt: rate limiting, failures, token cost | server only |
 | `payments` | one row per Stripe event: idempotency and audit | server only |
+| `evidence` | the seller's documents (name, type, reference number) | server only; users read their own |
+| `appeals` | takedown notices and the drafted fix/appeal | server only; users read their own |
+
+`listings` also stores `mode` (generate or audit), `risk_score` and `rules_version` (migration 002).
 
 ## Design decisions
 
@@ -91,3 +95,23 @@ The response is newline-delimited JSON, so the page shows each step as it finish
 7. **Cost and abuse controls.** Per-user rate limits (4 generations a minute, 60 a day), 10 AI rewrites per listing, token usage recorded per step for every listing.
 
 8. **Refusals.** Requests opt into server-side fallback (`fallbacks: "default"`): if a safety classifier declines, the API retries on Anthropic's recommended fallback model; a final refusal becomes a clear message and a refund.
+
+9. **Category rule packs and phrase combinations.** Step 1 classifies the product into one of eight packs (food contact, cosmetics, supplements, children, electronics, cleaning, pet, general); each adds its own rules on top of the base list. Marketplace filters react to combinations ("vitamin C" near "treats"), so a combination rule matches an ingredient or material within six words of a health effect, while neither word alone is flagged.
+
+10. **A risk score you can explain.** 0-100, computed in code from the findings (high 30, medium 10, unconfirmed 7, +10 in regulated categories, capped), with the drivers listed. The model never invents the number.
+
+11. **Evidence instead of guessing.** Sellers keep a library of documents they hold. The writer may state a certification only if a matching document is selected; a rule finding that a document covers is downgraded to medium and names the document. Without documents, claims are rewritten as plain material facts.
+
+12. **The seller's language, not ours.** For any seller who did not write in the listing's language, one more call explains the review (summary, each finding, each unconfirmed claim) in the seller's language and back-translates the listing so they can see exactly what it claims. Edits mark the explanation stale until it is refreshed.
+
+13. **Markets, not just translation.** Each marketplace defines its language, units, limits and the laws the AI review applies (FDA/EPA/FTC/CPSC in the US, ASA and GB BPR in the UK, UWG/HWG/EU BPR in Germany, PMD Act and Premiums and Representations Act in Japan). The English word lists run only on English listings; non-English listings rely on the AI review plus brand and contact matching.
+
+14. **Signals from real shoppers, failing safe.** The keyword step receives up to 20 phrases from the marketplace's own search-box suggestions (2.5 s timeout, empty on any failure), labelled in the UI as real phrases.
+
+15. **Main-image check in parallel.** The browser measures how white the photo's border is before uploading; a vision call checks text, props and fill. Runs alongside the keyword step, so it adds no latency.
+
+16. **Rules versioning.** `RULES_VERSION` is stored with every result; when rules change, listings checked under an older version are offered a free re-check (code only, no model call), individually or all at once.
+
+17. **Audit and appeal reuse the same parts.** An audit runs extract → review → minimal fix → review again, storing the original and both risk scores. The appeal assistant reads the notice (and the listing, if picked) and returns cause, fixes and an English appeal, explained in the seller's language.
+
+18. **Evaluation.** `npm run eval` scores the rule layer on a labelled set (eval/RESULTS.md) and fails if recall drops below 85% or false alarms exceed 15%.

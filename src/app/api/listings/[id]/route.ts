@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { PLATFORMS } from "@/lib/listing/platforms";
-import { dedupe, scanListing } from "@/lib/listing/compliance-rules";
 import { copyIssues } from "@/lib/listing/validate";
+import { recheck } from "@/lib/ai/pipeline";
 import type { ListingResult } from "@/lib/listing/types";
 import { currentUser, supabaseAdmin } from "@/lib/supabase/server";
 import { jsonError, readJson } from "@/lib/server/http";
@@ -32,15 +32,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const result = row.result as ListingResult;
   const copy = parsed.data.copy;
-  const whole = [copy.title, ...copy.bullets, copy.description, copy.searchTerms.join(" ")].join("\n").toLowerCase();
-  const compliance = dedupe([
-    ...scanListing({ title: copy.title, bullets: copy.bullets, description: copy.description, search_terms: copy.searchTerms.join(" ") }),
-    ...result.compliance.filter((f) => f.source === "ai" && whole.includes(f.text.toLowerCase())),
-  ]);
-  const unsupportedClaims = result.unsupportedClaims.filter((c) => whole.includes(c.text.toLowerCase()));
-  const updated: ListingResult = { ...result, copy, compliance, unsupportedClaims };
+  const checked = recheck({ ...result, copy });
+  // The seller's own words changed: the translation and explanation need a refresh.
+  const updated: ListingResult = { ...checked, native: checked.native ? { ...checked.native, stale: true } : undefined };
 
-  const { error } = await db.from("listings").update({ result: updated, updated_at: new Date().toISOString() }).eq("id", id).eq("user_id", user.id);
+  const { error } = await db.from("listings").update({ result: updated, risk_score: updated.risk?.score ?? null, rules_version: updated.rulesVersion, updated_at: new Date().toISOString() }).eq("id", id).eq("user_id", user.id);
   if (error) return jsonError(500, "save_failed", "Could not save your changes. Please try again.");
   return NextResponse.json({ result: updated, issues: copyIssues(copy, PLATFORMS[result.platform]) });
 }

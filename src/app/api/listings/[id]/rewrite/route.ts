@@ -37,8 +37,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const current = row.result as ListingResult;
     const out = await rewriteSection(body.data.section, current, body.data.request, getLLM());
-    const result: ListingResult = { ...current, copy: out.copy, compliance: out.compliance, usage: [...current.usage, ...out.usage] };
-    const { error } = await db.from("listings").update({ result, rewrites: row.rewrites + 1, updated_at: new Date().toISOString() }).eq("id", id).eq("user_id", user.id);
+    const result: ListingResult = out.result;
+    const { error } = await db.from("listings").update({ result, risk_score: result.risk?.score ?? null, rules_version: result.rulesVersion, rewrites: row.rewrites + 1, updated_at: new Date().toISOString() }).eq("id", id).eq("user_id", user.id);
     if (error) throw new Error(error.message);
     await recordEvent(user.id, "rewrite", "complete", `${id} ${body.data.section}`, out.usage);
     return NextResponse.json({ result, rewritesLeft: MAX_REWRITES - row.rewrites - 1 });

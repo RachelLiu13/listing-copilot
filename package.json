@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run lint && npm test"
+    "check": "npm run typecheck && npm run lint && npm test",
+    "eval": "vitest run --config vitest.eval.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

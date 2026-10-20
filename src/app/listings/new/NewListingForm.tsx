@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import EvidencePicker from "@/components/EvidencePicker";
+import Progress, { upsertStep, type StepState } from "@/components/Progress";
+import { MARKETS, readNdjson, type MarketId } from "@/lib/client/ndjson";
 
-type StepState = { step: string; label: string; status: "running" | "done"; detail?: string };
-type Image = { mediaType: "image/jpeg"; data: string; preview: string };
+type Image = { mediaType: "image/jpeg"; data: string; preview: string; borderWhite: number };
 
 const FIELDS: { key: string; label: string; placeholder: string; rows?: number; required?: boolean }[] = [
   { key: "productName", label: "Product name", placeholder: "e.g. 硅胶折叠水杯 · Ly silicon gấp gọn · Taza plegable de silicona", required: true },
@@ -17,22 +19,38 @@ const FIELDS: { key: string; label: string; placeholder: string; rows?: number; 
   { key: "notes", label: "Other notes", placeholder: "Colors: gray, green. Dishwasher safe.", rows: 3 },
 ];
 
-/** Resize in the browser so uploads stay small (≤1024px JPEG) and the original photo never leaves the device. */
-async function resizeImage(file: File): Promise<Image> {
+/**
+ * Resize in the browser (≤1024px JPEG) so uploads stay small, and measure how
+ * white the photo's border is: the main image needs a pure white background.
+ */
+async function prepareImage(file: File): Promise<Image> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const { width: w, height: h } = canvas;
+  const band = Math.max(2, Math.round(Math.min(w, h) * 0.02));
+  let white = 0;
+  let total = 0;
+  for (const [x, y, bw, bh] of [[0, 0, w, band], [0, h - band, w, band], [0, 0, band, h], [w - band, 0, band, h]]) {
+    const px = ctx.getImageData(x, y, bw, bh).data;
+    for (let i = 0; i < px.length; i += 16) {
+      total++;
+      if (px[i] >= 245 && px[i + 1] >= 245 && px[i + 2] >= 245) white++;
+    }
+  }
   const preview = canvas.toDataURL("image/jpeg", 0.85);
-  return { mediaType: "image/jpeg", data: preview.split(",")[1], preview };
+  return { mediaType: "image/jpeg", data: preview.split(",")[1], preview, borderWhite: total ? white / total : 0 };
 }
 
 export default function NewListingForm() {
   const router = useRouter();
-  const [platform, setPlatform] = useState<"amazon_us" | "tiktok_us">("amazon_us");
+  const [platform, setPlatform] = useState<MarketId>("amazon_us");
   const [values, setValues] = useState<Record<string, string>>({});
+  const [evidence, setEvidence] = useState<string[]>([]);
   const [image, setImage] = useState<Image | null>(null);
   const [busy, setBusy] = useState(false);
   const [steps, setSteps] = useState<StepState[]>([]);
@@ -41,7 +59,6 @@ export default function NewListingForm() {
   const [answers, setAnswers] = useState("");
   const [noCredits, setNoCredits] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const statusRef = useRef<HTMLElement>(null);
   const set = (key: string, value: string) => setValues((v) => ({ ...v, [key]: value }));
 
@@ -56,7 +73,7 @@ export default function NewListingForm() {
     if (!file) return;
     if (!file.type.startsWith("image/")) return setError("Please choose an image file.");
     try {
-      setImage(await resizeImage(file));
+      setImage(await prepareImage(file));
       setError(null);
     } catch {
       setError("That image could not be read. Try a JPG or PNG.");
@@ -77,7 +94,7 @@ export default function NewListingForm() {
       const res = await fetch("/api/listings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ platform, ...values, notes, image: image ? { mediaType: image.mediaType, data: image.data } : undefined }),
+        body: JSON.stringify({ platform, ...values, notes, evidence, image: image ? { mediaType: image.mediaType, data: image.data, borderWhite: image.borderWhite } : undefined }),
       });
       if (!res.ok || !res.body) {
         const body = await res.json().catch(() => null);
@@ -85,42 +102,29 @@ export default function NewListingForm() {
         if (res.status === 401) return router.push("/login?next=/listings/new");
         throw new Error(body?.error?.message ?? `Request failed (${res.status})`);
       }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let finished = false;
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines.filter(Boolean)) {
-          const ev = JSON.parse(line);
-          if (ev.type === "step") {
-            setSteps((prev) => {
-              const others = prev.filter((s) => s.step !== ev.step);
-              return [...others, { step: ev.step, label: ev.label, status: ev.status, detail: ev.detail }];
-            });
-          } else if (ev.type === "warning") setWarnings((w) => [...w, ev.message]);
-          else if (ev.type === "needs_info") {
-            setQuestions(ev.questions);
-            finished = true;
-          } else if (ev.type === "no_credits") {
+      const finished = await readNdjson(res, (ev) => {
+        switch (ev.type) {
+          case "step":
+            setSteps((prev) => upsertStep(prev, ev));
+            return false;
+          case "warning":
+            setWarnings((w) => [...w, String(ev.message)]);
+            return false;
+          case "needs_info":
+            setQuestions(ev.questions as string[]);
+            return true;
+          case "no_credits":
             setNoCredits(true);
-            finished = true;
-          } else if (ev.type === "error") {
-            setError(ev.message);
-            finished = true;
-          } else if (ev.type === "done") {
-            finished = true;
+            return true;
+          case "error":
+            setError(String(ev.message));
+            return true;
+          case "done":
             router.push(`/listings/${ev.id}`);
-            return;
-          }
+            return true;
         }
-      }
-      if (!finished) setError("The connection closed before the listing was ready. If a listing appears in My listings, it was saved; otherwise please try again.");
+      });
+      if (!finished) setError("The connection closed before the listing was ready. If it appears in My listings, it was saved; otherwise please try again.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
@@ -133,13 +137,14 @@ export default function NewListingForm() {
       <form onSubmit={generate} className="space-y-5">
         <div>
           <p className="text-sm font-medium text-slate-700">Marketplace</p>
-          <div className="mt-2 flex gap-2">
-            {(["amazon_us", "tiktok_us"] as const).map((p) => (
-              <button type="button" key={p} onClick={() => setPlatform(p)} className={`rounded-lg px-4 py-2 text-sm font-medium ring-1 ${platform === p ? "bg-indigo-600 text-white ring-indigo-600" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50"}`}>
-                {p === "amazon_us" ? "Amazon US" : "TikTok Shop US"}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {MARKETS.map((m) => (
+              <button type="button" key={m.id} onClick={() => setPlatform(m.id)} className={`rounded-lg px-3 py-2 text-sm font-medium ring-1 ${platform === m.id ? "bg-indigo-600 text-white ring-indigo-600" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50"}`}>
+                {m.label}
               </button>
             ))}
           </div>
+          <p className="mt-1 text-xs text-slate-500">The listing is written in the marketplace&apos;s language and checked against its rules. Explanations come back in your language.</p>
         </div>
 
         {FIELDS.map((f) => (
@@ -153,8 +158,10 @@ export default function NewListingForm() {
           </label>
         ))}
 
+        <EvidencePicker value={evidence} onChange={setEvidence} />
+
         <div className="text-sm">
-          <span className="font-medium text-slate-700">Product photo (optional)</span>
+          <span className="font-medium text-slate-700">Main image (optional)</span>
           <div className="mt-2 flex items-center gap-4">
             {image && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -163,7 +170,7 @@ export default function NewListingForm() {
             <input type="file" accept="image/jpeg,image/png,image/webp" onChange={onImage} className="text-sm" />
             {image && <button type="button" onClick={() => setImage(null)} className="text-slate-500 hover:underline">Remove</button>}
           </div>
-          <p className="mt-1 text-xs text-slate-500">Used once to read visible details. It is not stored.</p>
+          <p className="mt-1 text-xs text-slate-500">Used once to read visible details and to check main-image rules (white background, no text). It is not stored.</p>
         </div>
 
         <button disabled={busy} className="w-full rounded-lg bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-500 disabled:opacity-60">
@@ -172,24 +179,8 @@ export default function NewListingForm() {
         <p className="text-center text-xs text-slate-500">You are only charged when a full listing is written. Questions and failures are free.</p>
       </form>
 
-      <aside ref={statusRef} className="space-y-4 scroll-mt-20">
-        {steps.length > 0 && (
-          <div className="rounded-2xl border border-slate-200 p-5">
-            <p className="text-sm font-semibold text-slate-900">Progress</p>
-            <ol className="mt-3 space-y-3">
-              {steps.map((s) => (
-                <li key={s.step} className="flex gap-3 text-sm">
-                  <span className={`mt-0.5 h-4 w-4 shrink-0 rounded-full ${s.status === "done" ? "bg-emerald-500" : "animate-pulse bg-indigo-400"}`} />
-                  <span>
-                    <span className="text-slate-800">{s.label}</span>
-                    {s.detail && <span className="block text-xs text-slate-500">{s.detail}</span>}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-
+      <aside ref={statusRef} className="scroll-mt-20 space-y-4">
+        <Progress steps={steps} />
         {warnings.map((w) => <p key={w} className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{w}</p>)}
 
         {questions && (
@@ -203,7 +194,7 @@ export default function NewListingForm() {
 
         {noCredits && (
           <div className="rounded-2xl border border-slate-200 p-5 text-sm">
-            <p className="font-semibold text-slate-900">You have used your free listings</p>
+            <p className="font-semibold text-slate-900">You have used your credits</p>
             <p className="mt-1 text-slate-600">Buy a credit pack or go Pro to keep writing. Nothing was charged for this attempt.</p>
             <Link href="/pricing" className="mt-3 inline-block font-semibold text-indigo-600 hover:underline">See plans →</Link>
           </div>

@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import BuyButton from "@/components/BuyButton";
+import RiskBadge from "@/components/RiskBadge";
+import RecheckAllButton from "@/components/RecheckAllButton";
+import { RULES_VERSION } from "@/lib/listing/compliance-rules";
 import { ensureProfile, isActivePro } from "@/lib/account";
 import { PLATFORMS, isPlatform } from "@/lib/listing/platforms";
 import type { ListingResult } from "@/lib/listing/types";
@@ -8,6 +11,9 @@ import { currentUser, supabaseForUser } from "@/lib/supabase/server";
 
 export const metadata = { title: "My listings · Listing Copilot" };
 export const dynamic = "force-dynamic";
+
+/** A file download from an API route, not a page, so a plain link (not next/link). */
+const EXPORT_ALL = "/api/listings/export";
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
   const user = await currentUser();
@@ -18,7 +24,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
   // Read through the user's own session: Row Level Security returns only their rows.
   const supabase = await supabaseForUser();
-  const { data: listings } = await supabase.from("listings").select("id,platform,product_name,result,created_at").order("created_at", { ascending: false }).limit(100);
+  const { data: listings } = await supabase.from("listings").select("id,platform,product_name,mode,result,risk_score,rules_version,created_at").order("created_at", { ascending: false }).limit(100);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
@@ -30,13 +36,18 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <h1 className="text-2xl font-semibold text-slate-900">My listings</h1>
           <p className="mt-1 text-sm text-slate-500">{user.email}</p>
         </div>
-        <Link href="/listings/new" className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500">+ New listing</Link>
+        <div className="flex flex-wrap gap-2 text-sm">
+          <Link href="/listings/new" className="rounded-lg bg-indigo-600 px-4 py-2.5 font-semibold text-white hover:bg-indigo-500">+ New listing</Link>
+          <Link href="/audit" className="rounded-lg px-4 py-2.5 font-medium ring-1 ring-slate-300 hover:bg-slate-50">Audit a live listing</Link>
+          <Link href="/bulk" className="rounded-lg px-4 py-2.5 font-medium ring-1 ring-slate-300 hover:bg-slate-50">Bulk CSV</Link>
+          <Link href="/appeal" className="rounded-lg px-4 py-2.5 font-medium ring-1 ring-slate-300 hover:bg-slate-50">Takedown help</Link>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 p-5">
         <div className="flex-1">
           <p className="text-sm text-slate-500">Plan</p>
-          <p className="text-lg font-semibold">{pro ? "Pro: unlimited listings" : `${profile.credits} listing credit${profile.credits === 1 ? "" : "s"} left`}</p>
+          <p className="text-lg font-semibold">{pro ? "Pro: unlimited listings" : `${profile.credits} credit${profile.credits === 1 ? "" : "s"} left (1 per listing, audit or appeal)`}</p>
           {pro && profile.pro_until && <p className="text-xs text-slate-500">Active until {new Date(profile.pro_until).toLocaleDateString()}</p>}
         </div>
         {!pro && (
@@ -46,6 +57,20 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           </div>
         )}
       </div>
+
+      {(() => {
+        const outdated = (listings ?? []).filter((l) => (l.rules_version ?? 0) < RULES_VERSION).length;
+        return outdated > 0 ? (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+            <span>Our compliance rules were updated. {outdated} listing{outdated > 1 ? "s were" : " was"} checked under older rules.</span>
+            <RecheckAllButton count={outdated} />
+          </div>
+        ) : null;
+      })()}
+
+      {listings && listings.length > 1 && (
+        <p className="mt-6 text-right text-sm"><a href={EXPORT_ALL} className="font-medium text-indigo-600 hover:underline">Export all as CSV</a> · <Link href="/evidence" className="font-medium text-indigo-600 hover:underline">Evidence library</Link></p>
+      )}
 
       {!listings?.length ? (
         <div className="mt-10 rounded-2xl border border-dashed border-slate-300 p-12 text-center">
@@ -57,14 +82,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           {listings.map((l) => {
             const r = l.result as ListingResult | null;
             const high = r?.compliance.filter((f) => f.severity === "high").length ?? 0;
+            const risk = r?.risk;
             return (
               <li key={l.id}>
                 <Link href={`/listings/${l.id}`} className="flex items-center gap-4 p-4 hover:bg-slate-50">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-slate-900">{r?.copy.title ?? l.product_name}</p>
-                    <p className="mt-0.5 truncate text-sm text-slate-500">{l.product_name} · {isPlatform(l.platform) ? PLATFORMS[l.platform].label : l.platform} · {new Date(l.created_at).toLocaleDateString()}</p>
+                    <p className="mt-0.5 truncate text-sm text-slate-500">{l.mode === "audit" && <span className="mr-1 rounded bg-slate-900 px-1 py-0.5 text-[10px] font-semibold text-white">AUDIT</span>}{l.product_name} · {isPlatform(l.platform) ? PLATFORMS[l.platform].label : l.platform} · {new Date(l.created_at).toLocaleDateString()}</p>
                   </div>
-                  {high > 0 ? (
+                  {risk ? (
+                    <RiskBadge score={risk.score} level={risk.level} />
+                  ) : high > 0 ? (
                     <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">{high} high risk</span>
                   ) : (
                     <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">No high risks</span>

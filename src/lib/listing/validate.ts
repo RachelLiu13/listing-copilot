@@ -9,6 +9,9 @@ export interface CopyIssue {
 
 export const byteLength = (s: string) => new TextEncoder().encode(s).length;
 
+/** Words in any script (Latin with accents, German umlauts, Japanese, ...). */
+export const words = (s: string) => s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+
 /** Cut at the last whole word that fits, without trailing punctuation. */
 export function truncateAtWord(s: string, max: number): string {
   if (s.length <= max) return s;
@@ -23,8 +26,8 @@ export function titleIssues(title: string, rules: PlatformRules): CopyIssue[] {
   const bad = rules.titleForbiddenChars.filter((c) => title.includes(c));
   if (bad.length) issues.push({ field: "title", problem: `contains characters the platform rejects: ${bad.join(" ")}` });
   const counts = new Map<string, number>();
-  for (const word of title.toLowerCase().match(/[a-z0-9]+/g) ?? []) {
-    if (word.length < 3) continue; // "and", "for" and units are fine to repeat
+  for (const word of words(title)) {
+    if (word.length < 3 && /^[\p{Script=Latin}\p{N}]+$/u.test(word)) continue; // "and", "for" and units are fine to repeat
     counts.set(word, (counts.get(word) ?? 0) + 1);
   }
   const repeated = [...counts].filter(([, n]) => n > rules.titleMaxWordRepeats).map(([word]) => word);
@@ -49,18 +52,18 @@ export function copyIssues(copy: ListingCopy, rules: PlatformRules): CopyIssue[]
  * title (they are indexed anyway), no duplicates, within the byte limit.
  */
 export function normalizeSearchTerms(terms: string[], title: string, maxBytes: number, brand?: string): string[] {
-  const titleWords = new Set(title.toLowerCase().match(/[a-z0-9]+/g) ?? []);
-  const brandWords = new Set((brand ?? "").toLowerCase().match(/[a-z0-9]+/g) ?? []);
+  const titleWords = new Set(words(title));
+  const brandWords = new Set(words(brand ?? ""));
   const seen = new Set<string>();
   const out: string[] = [];
   let bytes = 0;
   for (const term of terms) {
-    const words = (term.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => !titleWords.has(w) && !brandWords.has(w) && !seen.has(w));
-    if (!words.length) continue;
-    const phrase = words.join(" ");
+    const kept = words(term).filter((w) => !titleWords.has(w) && !brandWords.has(w) && !seen.has(w));
+    if (!kept.length) continue;
+    const phrase = kept.join(" ");
     const add = byteLength(phrase) + (out.length ? 1 : 0);
     if (bytes + add > maxBytes) continue;
-    words.forEach((w) => seen.add(w));
+    kept.forEach((w) => seen.add(w));
     out.push(phrase);
     bytes += add;
   }

@@ -5,7 +5,7 @@ About 30 minutes. Everything runs on free tiers except Claude API usage (a listi
 ## 1. Supabase (auth + database)
 
 1. Create a project at <https://supabase.com>.
-2. **SQL Editor** → paste `supabase/migrations/001_init.sql` → Run.
+2. **SQL Editor** → paste `supabase/migrations/001_init.sql` → Run, then the same for `002_compliance_suite.sql`.
 3. **Project Settings → API**: copy the Project URL, the anon/publishable key and the service-role/secret key.
 4. **Authentication → Sign In / Providers → Email**: for a smooth demo, turn **Confirm email** off (Supabase's built-in mailer sends only a few emails per hour). Keep it on if you configure your own SMTP.
 5. **Authentication → URL Configuration**: Site URL = your Vercel URL; add `http://localhost:3000/**` and `https://YOUR-APP.vercel.app/**` to Redirect URLs.

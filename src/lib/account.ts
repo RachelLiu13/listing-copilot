@@ -30,6 +30,7 @@ export async function ensureProfile(userId: string, email: string): Promise<Prof
 }
 
 export type ChargeResult = "pro" | "charged" | "no_credits";
+export type EventKind = "generate" | "rewrite" | "audit" | "appeal" | "explain";
 
 export async function consumeCredit(userId: string): Promise<ChargeResult> {
   const { data, error } = await supabaseAdmin().rpc("consume_credit", { p_user: userId });
@@ -44,7 +45,7 @@ export async function refundCredit(userId: string): Promise<void> {
 
 export async function recordEvent(
   userId: string,
-  kind: "generate" | "rewrite",
+  kind: EventKind,
   outcome: "started" | "needs_info" | "complete" | "failed" | "no_credits",
   detail?: string,
   usage: StepUsage[] = [],

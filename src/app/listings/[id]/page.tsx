@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import type { ListingResult } from "@/lib/listing/types";
 import { PLATFORMS } from "@/lib/listing/platforms";
+import { RULES_VERSION } from "@/lib/listing/compliance-rules";
 import { currentUser, supabaseForUser } from "@/lib/supabase/server";
 import ListingView from "./ListingView";
 
@@ -25,7 +26,7 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
 
   // RLS: another user's id simply returns nothing.
   const supabase = await supabaseForUser();
-  const { data } = await supabase.from("listings").select("id,product_name,platform,result,rewrites,created_at").eq("id", id).maybeSingle();
+  const { data } = await supabase.from("listings").select("id,product_name,platform,result,rewrites,rules_version,created_at").eq("id", id).maybeSingle();
   if (!data?.result) notFound();
   const result = data.result as ListingResult;
   const rules = PLATFORMS[result.platform];
@@ -38,6 +39,7 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
         initial={result}
         rewritesUsed={data.rewrites}
         limits={{ label: rules.label, titleMax: rules.titleMax, bulletMax: rules.bulletMax, descriptionMax: rules.descriptionMax }}
+        rulesOutdated={(data.rules_version ?? 0) < RULES_VERSION}
       />
     </main>
   );
