@@ -30,4 +30,10 @@ describe("Stripe events", () => {
     const a = paymentActionFor(event("customer.subscription.updated", { id: "sub_1", status: "active", cancel_at_period_end: true, metadata: { user_id: "u1" }, items: { data: [{ current_period_end: end }] } }));
     expect(a).toMatchObject({ setPlan: "pro", proUntil: "2030-01-01T00:00:00.000Z" });
   });
+
+  it("reads cancel_at, which the customer portal sets on newer API versions", () => {
+    const end = Math.floor(Date.UTC(2030, 5, 1) / 1000);
+    const a = paymentActionFor(event("customer.subscription.updated", { id: "sub_1", status: "active", cancel_at: end, cancel_at_period_end: false, metadata: { user_id: "u1" }, items: { data: [{ current_period_end: end }] } }));
+    expect(a).toMatchObject({ setPlan: "pro", proUntil: "2030-06-01T00:00:00.000Z" });
+  });
 });

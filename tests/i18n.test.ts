@@ -40,5 +40,6 @@ describe("interface languages", () => {
     expect(errorText(DICTS.es, { code: "rewrite_failed", ai: "unavailable" })).toBe(DICTS.es.apiErrors.ai_unavailable);
     expect(errorText(DICTS.ja, { code: "save_failed", message: "Could not save." })).toBe("Could not save.");
     expect(errorText(DICTS.vi, null)).toBe(DICTS.vi.apiErrors.failed);
+    expect(errorText(DICTS.ja, { code: "monthly_limit", message: "limit" })).toBe(DICTS.ja.apiErrors.monthly_limit);
   });
 });

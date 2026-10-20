@@ -21,6 +21,7 @@ export default async function Header() {
               <Link href="/bulk" className="hidden rounded-md px-2 py-1 text-slate-600 hover:text-slate-900 md:inline">{t.nav.bulk}</Link>
               <Link href="/appeal" className="hidden rounded-md px-2 py-1 text-slate-600 hover:text-slate-900 lg:inline">{t.nav.takedown}</Link>
               <Link href="/evidence" className="hidden rounded-md px-2 py-1 text-slate-600 hover:text-slate-900 lg:inline">{t.nav.evidence}</Link>
+              <Link href="/account" className="hidden rounded-md px-2 py-1 text-slate-600 hover:text-slate-900 sm:inline">{t.nav.account}</Link>
               <LanguageSwitcher />
               <form action="/auth/signout" method="post">
                 <button className="rounded-md px-2 py-1 text-slate-600 hover:text-slate-900">{t.nav.signOut}</button>

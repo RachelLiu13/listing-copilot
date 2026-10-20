@@ -71,6 +71,13 @@ export default function BulkRunner() {
           break;
         }
         if (res.status === 429) {
+          const body = await res.clone().json().catch(() => null);
+          if (body?.error?.code !== "rate_limited") {
+            // Daily or monthly limit: waiting a minute will not help.
+            setOne(i, { state: "error", detail: errorText(T, body?.error) });
+            setError(errorText(T, body?.error));
+            break;
+          }
           setOne(i, { state: "waiting", detail: t.retrying });
           await new Promise((r) => setTimeout(r, 60_000));
           i--;

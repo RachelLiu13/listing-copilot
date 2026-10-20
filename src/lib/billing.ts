@@ -50,9 +50,11 @@ export function paymentActionFor(event: Stripe.Event): PaymentAction | null {
     const userId = sub.metadata?.user_id;
     if (!userId) return null;
     const active = event.type === "customer.subscription.updated" && (sub.status === "active" || sub.status === "trialing");
-    // A subscription set to cancel stays Pro until its period ends.
+    // A subscription set to cancel stays Pro until it ends. Newer API versions
+    // (and the customer portal) set cancel_at; older ones cancel_at_period_end.
     const periodEnd = sub.items?.data?.[0]?.current_period_end;
-    const until = active && sub.cancel_at_period_end && periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
+    const endsAt = sub.cancel_at ?? (sub.cancel_at_period_end ? periodEnd : null);
+    const until = active && endsAt ? new Date(endsAt * 1000).toISOString() : null;
     return {
       eventId: event.id,
       userId,

@@ -27,6 +27,14 @@ export async function POST(req: Request) {
   const action = paymentActionFor(event);
   if (!action) return NextResponse.json({ received: true, ignored: event.type });
 
+  // The account may have been deleted (deleting it cancels the subscription, and
+  // Stripe then reports the end). Nothing to apply; acknowledge so Stripe stops retrying.
+  const { data: owner } = await supabaseAdmin().from("profiles").select("id").eq("id", action.userId).maybeSingle();
+  if (!owner) {
+    console.warn("stripe event for a deleted account", { event: event.id, type: event.type });
+    return NextResponse.json({ received: true, ignored: "account deleted" });
+  }
+
   const { data: applied, error } = await supabaseAdmin().rpc("apply_payment", {
     p_event_id: action.eventId,
     p_user: action.userId,

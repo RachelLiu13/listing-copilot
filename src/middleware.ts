@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   // Whole path segments only: "/bulk" is protected, "/bulk-template.csv" is a public file.
-  const isAppPage = ["/dashboard", "/listings", "/audit", "/appeal", "/bulk", "/evidence"].some((p) => path === p || path.startsWith(`${p}/`));
+  const isAppPage = ["/dashboard", "/listings", "/audit", "/appeal", "/bulk", "/evidence", "/account"].some((p) => path === p || path.startsWith(`${p}/`));
   if (isAppPage && !data.user) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";

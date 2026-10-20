@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   const body = Body.safeParse(await readJson(req));
   if (!body.success) return jsonError(400, "invalid_input", body.error.issues[0]?.message ?? "Invalid input");
   const limit = await checkRateLimit(user.id);
-  if (!limit.ok) return jsonError(429, "rate_limited", limit.message);
+  if (!limit.ok) return jsonError(429, limit.code, limit.message);
   const profile = await ensureProfile(user.id, user.email ?? "");
   if (!isActivePro(profile) && profile.credits <= 0) return jsonError(402, "no_credits", "You have used your credits.");
 

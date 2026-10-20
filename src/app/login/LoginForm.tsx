@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useT } from "@/lib/i18n/client";
@@ -10,7 +11,7 @@ export default function LoginForm({ googleEnabled }: { googleEnabled: boolean })
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") ?? "/dashboard";
-  const [mode, setMode] = useState<"signin" | "signup">(params.get("mode") === "signup" ? "signup" : "signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "reset">(params.get("mode") === "signup" ? "signup" : "signin");
   /** Set once a sign-up (or an unconfirmed sign-in) is waiting for the emailed code. */
   const [verifying, setVerifying] = useState(false);
   const [code, setCode] = useState("");
@@ -60,6 +61,18 @@ export default function LoginForm({ googleEnabled }: { googleEnabled: boolean })
     }
   }
 
+  async function sendReset(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    const { error } = await supabaseBrowser().auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/account/password")}`,
+    });
+    setBusy(false);
+    // Same answer whether or not the account exists, so the form cannot be used to probe for emails.
+    setMessage(error?.message.includes("security purposes") ? { kind: "error", text: t.resendWait } : { kind: "info", text: t.resetSent });
+  }
+
   async function verify(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -100,6 +113,26 @@ export default function LoginForm({ googleEnabled }: { googleEnabled: boolean })
     );
   }
 
+  if (mode === "reset") {
+    return (
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <h1 className="text-2xl font-semibold text-slate-900">{t.resetTitle}</h1>
+        <p className="mt-1 text-sm text-slate-500">{t.resetLead}</p>
+        <form onSubmit={sendReset} className="mt-6 space-y-4">
+          <label className="block text-sm">
+            <span className="font-medium text-slate-700">{t.email}</span>
+            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none" />
+          </label>
+          {message && <p className={`text-sm ${message.kind === "error" ? "text-red-600" : "text-emerald-700"}`}>{message.text}</p>}
+          <button disabled={busy} className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60">
+            {busy ? t.wait : t.resetSend}
+          </button>
+        </form>
+        <button onClick={() => { setMode("signin"); setMessage(null); }} className="mt-5 w-full text-center text-sm text-indigo-600 hover:underline">{t.back}</button>
+      </div>
+    );
+  }
+
   async function google() {
     const { error } = await supabaseBrowser().auth.signInWithOAuth({
       provider: "google",
@@ -133,10 +166,18 @@ export default function LoginForm({ googleEnabled }: { googleEnabled: boolean })
           <span className="font-medium text-slate-700">{t.password}</span>
           <input type="password" required minLength={8} autoComplete={mode === "signup" ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none" />
         </label>
+        {mode === "signin" && (
+          <button type="button" onClick={() => { setMode("reset"); setMessage(null); }} className="-mt-2 block text-xs text-slate-500 hover:text-indigo-600 hover:underline">{t.forgot}</button>
+        )}
         {message && <p className={`text-sm ${message.kind === "error" ? "text-red-600" : "text-emerald-700"}`}>{message.text}</p>}
         <button disabled={busy} className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60">
           {busy ? t.wait : mode === "signin" ? t.signIn : t.createButton}
         </button>
+        {mode === "signup" && (
+          <p className="text-center text-xs text-slate-500">
+            {t.agree[0]} <Link href="/terms" className="underline">{t.agree[1]}</Link> {t.agree[2]} <Link href="/privacy" className="underline">{t.agree[3]}</Link>{t.agree[4]}
+          </p>
+        )}
       </form>
 
       <button onClick={() => setMode(mode === "signin" ? "signup" : "signin")} className="mt-5 w-full text-center text-sm text-indigo-600 hover:underline">

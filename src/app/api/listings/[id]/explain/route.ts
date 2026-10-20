@@ -24,7 +24,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!row?.result) return jsonError(404, "not_found", "Listing not found.");
   if (row.rewrites >= MAX_REWRITES) return jsonError(429, "rewrite_limit", `Each listing includes ${MAX_REWRITES} AI rewrites.`);
   const limit = await checkRateLimit(user.id);
-  if (!limit.ok) return jsonError(429, "rate_limited", limit.message);
+  if (!limit.ok) return jsonError(429, limit.code, limit.message);
 
   await recordEvent(user.id, "explain", "started");
   try {

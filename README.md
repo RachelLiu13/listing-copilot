@@ -37,6 +37,8 @@ Writing a listing with AI is no longer rare: Amazon offers it for free, and Heli
 
 **Also:** audit and fix a live listing · bulk CSV (50 rows) · takedown/appeal assistant · evidence library · free re-check of every listing when the rules are updated · section rewrite, manual edit, copy, CSV export.
 
+**Account:** email verification by code, password reset, cancel Pro or update the card in Stripe's customer portal, download all data, delete the account (cancels the subscription first), Terms / Privacy / Refund pages, fair-use cap of 300 AI requests per 30 days.
+
 **Pricing:** 3 free credits · $4.99 for 20 credits · $9.99/month unlimited (Stripe Checkout, test mode: card `4242 4242 4242 4242`). One credit = one listing, audit or appeal.
 
 ## Evaluation

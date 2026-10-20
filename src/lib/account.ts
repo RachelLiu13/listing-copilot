@@ -58,16 +58,21 @@ export async function recordEvent(
 
 const PER_MINUTE = 4;
 const PER_DAY = 60;
+/** Fair-use cap for everyone, Pro included: about ten listings a day, so one account cannot run up an unbounded bill. */
+export const PER_MONTH = 300;
+
+export type LimitCode = "rate_limited" | "daily_limit" | "monthly_limit";
 
 /** Caps model calls per user so a script (or a stuck button) cannot run up the API bill. */
-export async function checkRateLimit(userId: string): Promise<{ ok: true } | { ok: false; message: string }> {
+export async function checkRateLimit(userId: string): Promise<{ ok: true } | { ok: false; code: LimitCode; message: string }> {
   const db = supabaseAdmin();
   const since = (ms: number) => new Date(Date.now() - ms).toISOString();
   const count = async (ms: number) => {
     const { count: n } = await db.from("generation_events").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("outcome", "started").gte("created_at", since(ms));
     return n ?? 0;
   };
-  if ((await count(60_000)) >= PER_MINUTE) return { ok: false, message: "You are going a bit fast. Please wait a minute and try again." };
-  if ((await count(86_400_000)) >= PER_DAY) return { ok: false, message: "You have reached today's limit. Please come back tomorrow." };
+  if ((await count(60_000)) >= PER_MINUTE) return { ok: false, code: "rate_limited", message: "You are going a bit fast. Please wait a minute and try again." };
+  if ((await count(86_400_000)) >= PER_DAY) return { ok: false, code: "daily_limit", message: "You have reached today's limit. Please come back tomorrow." };
+  if ((await count(30 * 86_400_000)) >= PER_MONTH) return { ok: false, code: "monthly_limit", message: `You have reached the fair-use limit of ${PER_MONTH} AI requests in 30 days.` };
   return { ok: true };
 }
